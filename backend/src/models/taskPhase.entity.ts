@@ -46,6 +46,9 @@ export class TaskPhase {
   @Column({ type: 'enum', enum: PhaseStatus, default: PhaseStatus.Pending })
   status: PhaseStatus;
 
+  @Column({ type: 'varchar', length: 200, nullable: true })
+  blockReason?: string | null;
+
   @OneToMany(() => SubTask, (task) => task.phase)
   subTasks: SubTask[];
 

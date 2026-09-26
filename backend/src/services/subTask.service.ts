@@ -1,14 +1,16 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { SubTask } from '../models/subTask.entity';
-import { TaskStatus } from '../types/enums';
+import { TaskPhase } from '../models/taskPhase.entity';
+import { PhaseStatus, TaskStatus } from '../types/enums';
 import { AuditService } from './audit.service';
 
 @Injectable()
 export class SubTaskService {
   constructor(
     @InjectRepository(SubTask) private readonly taskRepository: Repository<SubTask>,
+    @InjectRepository(TaskPhase) private readonly phaseRepository: Repository<TaskPhase>,
     private readonly auditService: AuditService
   ) {}
 
@@ -27,11 +29,42 @@ export class SubTaskService {
     if (!task) {
       throw new NotFoundException('子任务不存在');
     }
+    if (status === TaskStatus.Done) {
+      const phase = await this.phaseRepository.findOneBy({ id: task.phaseId });
+      if (phase?.status === PhaseStatus.Blocked) {
+        throw new BadRequestException(`阶段「${phase.name}」阻塞中（${phase.blockReason || '未填写原因'}），子任务不能标记完成`);
+      }
+    }
     task.status = status;
     task.completedAt = status === TaskStatus.Done ? new Date().toISOString().slice(0, 10) : null;
     const updated = await this.taskRepository.save(task);
+    await this.syncPhaseCompletion(task.phaseId);
     await this.auditService.record('subtask.status.update', 'SubTask', id, actorId, { status });
     return updated;
+  }
+
+  private async syncPhaseCompletion(phaseId: number) {
+    const phase = await this.phaseRepository.findOne({ where: { id: phaseId }, relations: ['subTasks'] });
+    if (!phase || phase.status === PhaseStatus.Blocked) {
+      return;
+    }
+    const tasks = phase.subTasks || [];
+    if (tasks.length === 0) {
+      return;
+    }
+    const doneCount = tasks.filter((item) => item.status === TaskStatus.Done).length;
+    if (doneCount === tasks.length) {
+      phase.status = PhaseStatus.Completed;
+      phase.percentComplete = 100;
+      phase.actualEndDate = new Date().toISOString().slice(0, 10);
+    } else if (phase.status === PhaseStatus.Completed || phase.percentComplete >= 100) {
+      phase.status = PhaseStatus.InProgress;
+      phase.percentComplete = Math.min(99, Math.round((doneCount / tasks.length) * 100));
+      phase.actualEndDate = null;
+    } else {
+      return;
+    }
+    await this.phaseRepository.save(phase);
   }
 
   async timesheet() {

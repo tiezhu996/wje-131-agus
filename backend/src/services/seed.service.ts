@@ -89,7 +89,8 @@ export class SeedService implements OnModuleInit {
         percentComplete: 42,
         ownerId: users[1].id,
         priority: Priority.Critical,
-        status: PhaseStatus.Blocked
+        status: PhaseStatus.Blocked,
+        blockReason: '等待设计院确认加固节点变更方案'
       }
     ]);
 
