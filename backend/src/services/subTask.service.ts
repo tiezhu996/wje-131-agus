@@ -1,14 +1,16 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { SubTask } from '../models/subTask.entity';
-import { TaskStatus } from '../types/enums';
+import { PhaseStatus, TaskStatus } from '../types/enums';
 import { AuditService } from './audit.service';
+import { TaskPhaseService } from './taskPhase.service';
 
 @Injectable()
 export class SubTaskService {
   constructor(
     @InjectRepository(SubTask) private readonly taskRepository: Repository<SubTask>,
+    private readonly taskPhaseService: TaskPhaseService,
     private readonly auditService: AuditService
   ) {}
 
@@ -27,10 +29,19 @@ export class SubTaskService {
     if (!task) {
       throw new NotFoundException('子任务不存在');
     }
+    if (status === TaskStatus.Done) {
+      const phase = await this.taskPhaseService.getById(task.phaseId);
+      if (phase.status === PhaseStatus.Blocked) {
+        throw new BadRequestException(
+          `阶段「${phase.name}」处于阻塞状态${phase.blockedReason ? `：${phase.blockedReason}` : ''}，解除阻塞后才能完成子任务`
+        );
+      }
+    }
     task.status = status;
     task.completedAt = status === TaskStatus.Done ? new Date().toISOString().slice(0, 10) : null;
     const updated = await this.taskRepository.save(task);
     await this.auditService.record('subtask.status.update', 'SubTask', id, actorId, { status });
+    await this.taskPhaseService.syncCompletionWithSubTasks(task.phaseId, actorId);
     return updated;
   }
 

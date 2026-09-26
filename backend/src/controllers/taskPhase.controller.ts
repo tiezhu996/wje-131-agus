@@ -28,13 +28,13 @@ export class TaskPhaseController {
 
   @Patch(':id/block')
   @UseGuards(rbacMiddleware([UserRole.Admin, UserRole.ProjectManager, UserRole.Foreman]))
-  async block(@Param('id') id: string, @Req() req: Request) {
-    return ok(await this.taskPhaseService.setBlocked(Number(id), true, req.user?.id), '阶段已阻塞');
+  async block(@Param('id') id: string, @Body() body: { reason?: string }, @Req() req: Request) {
+    return ok(await this.taskPhaseService.setBlocked(Number(id), true, body?.reason, req.user?.id), '阶段已阻塞');
   }
 
   @Patch(':id/unblock')
   @UseGuards(rbacMiddleware([UserRole.Admin, UserRole.ProjectManager, UserRole.Foreman]))
   async unblock(@Param('id') id: string, @Req() req: Request) {
-    return ok(await this.taskPhaseService.setBlocked(Number(id), false, req.user?.id), '阶段已解除阻塞');
+    return ok(await this.taskPhaseService.setBlocked(Number(id), false, undefined, req.user?.id), '阶段已解除阻塞');
   }
 }

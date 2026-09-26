@@ -7,6 +7,6 @@ export const taskPhaseApi = {
   create: (payload: Partial<TaskPhase>) => postData<TaskPhase>(apiPaths.taskPhases, payload),
   updateProgress: (id: number, percentComplete: number) =>
     patchData<TaskPhase>(`${apiPaths.taskPhases}/${id}/progress`, { percentComplete }),
-  block: (id: number) => patchData<TaskPhase>(`${apiPaths.taskPhases}/${id}/block`),
+  block: (id: number, reason: string) => patchData<TaskPhase>(`${apiPaths.taskPhases}/${id}/block`, { reason }),
   unblock: (id: number) => patchData<TaskPhase>(`${apiPaths.taskPhases}/${id}/unblock`)
 };

@@ -14,6 +14,7 @@ export interface TaskPhase {
   owner?: User;
   priority: Priority;
   status: PhaseStatus;
+  blockedReason?: string | null;
   subTasks?: SubTask[];
 }
 
